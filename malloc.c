@@ -3,7 +3,7 @@
 #include<stdint.h>
 #include<unistd.h>
 
-#include"header.h"
+#include"definitions.h"
 
 #define HUNK_SIZE 65536
 #define TRUE 1
@@ -105,6 +105,16 @@ intptr_t findBigEnoughBlock(size_t desired_size){
     return (intptr_t) NULL;
 }
 
+/*Calss malloc and then zeroes out everything*/
+void *my_calloc(size_t desired_size){
+    void *ret_address = my_malloc(desired_size);
+    uint8_t *zero_counter = ret_address;
+    int count;
+    for (count = 0; count < desired_size; count++){
+        *(zero_counter + count) = 0;
+    }
+    return ret_address;
+}
 
 void *my_malloc(size_t desired_size){
     void *return_address;
@@ -146,7 +156,7 @@ void *my_malloc(size_t desired_size){
 int main(int agrc, char* argv[]){
 
     int *pointer = my_malloc(sizeof(int));
-    int *pointer2 = my_malloc(sizeof(int));
+    int *pointer2 = my_calloc(sizeof(int));
     char *subject = my_malloc(30);
     char *bigName;
 
