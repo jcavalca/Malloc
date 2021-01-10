@@ -2,6 +2,7 @@
 #include<stdio.h>
 #include<stdint.h>
 #include<unistd.h>
+#include<string.h>
 
 #include"definitions.h"
 
@@ -29,33 +30,6 @@ size_t round_16(size_t number){
     return multiple;
 }
 
-/* This function starts at the first heap header and joins 2 adjacent free blocks as it traverses the heap.*/
-void joinAdjacentFreeBlocks(){
-    Header *old = firstHeader;
-    Header *next = firstHeader -> nextHeader;
-
-    while (next != NULL){
-        /*If both are free, join them */
-        if (  (old -> free == TRUE)  &&  (next -> free == TRUE) ){
-
-            /* new size = old + new - header */
-            int old_size = old -> size;
-            int next_size = next -> size;
-            int totalSize = old_size + next_size + round_16(headerSize);
-            old -> size = totalSize;
-
-            old -> nextHeader = next -> nextHeader;
-            next = old -> nextHeader;
-        }
-        /*If they aren't both free, keep searching*/
-        else{
-            old = next;
-            next = next -> nextHeader;
-        }
-    }
-
-}
-
 /*Initializes a 64k heap header*/
 intptr_t initializeHunk(intptr_t start){
     size_t adjustedSize = HUNK_SIZE - round_16(headerSize);
@@ -79,6 +53,7 @@ intptr_t findBigEnoughBlock(size_t desired_size){
 
             /*Matches size perfectly*/
             if (sizeAvailable == desired_size){
+                currentHeader -> free = FALSE;
                 return (intptr_t) currentHeader + sizeOfHeader;
             }
             /*Bigger so split big block into 2 blocks*/
@@ -105,11 +80,78 @@ intptr_t findBigEnoughBlock(size_t desired_size){
     return (intptr_t) NULL;
 }
 
-/*Calss malloc and then zeroes out everything*/
+void my_free(void *ptr){
+    size_t sizeOfHeader = round_16(headerSize);
+    intptr_t input = (intptr_t) ptr;
+    Header *currentHeader;
+    Header *prevHeader;
+    /*Bad users ...*/
+    if (ptr == NULL){
+        return;
+    }
+
+    /*Out of heap ptr*/
+    if (  (input < (intptr_t) startHeap) || 
+          (input > (intptr_t) startHeap + heapSize)){
+        return;
+    }
+    /*On Heap*/
+    currentHeader = firstHeader;
+    prevHeader = firstHeader;
+
+    while(  input > (intptr_t) (currentHeader ->nextHeader) + sizeOfHeader){
+        prevHeader = currentHeader;
+        currentHeader = currentHeader -> nextHeader;
+    }
+    if (currentHeader != NULL){
+        currentHeader -> free = TRUE;
+
+        /*Case 1: Both previous and next blocks are free*/
+        if(   (prevHeader != currentHeader && prevHeader -> free == TRUE) &&
+              (currentHeader -> nextHeader != NULL) && 
+              (currentHeader -> nextHeader -> free == TRUE)){
+            size_t totalSize = prevHeader -> size + currentHeader -> size + 
+                                currentHeader -> nextHeader -> size;
+            Header *newNext = currentHeader -> nextHeader -> nextHeader;
+            prevHeader -> size = totalSize;
+            prevHeader -> nextHeader = newNext; 
+        }
+        /*Case 2: Only previous is free*/
+        else if(prevHeader != currentHeader && prevHeader -> free == TRUE){
+            size_t totalSize = prevHeader -> size + currentHeader -> size;
+            Header *newNext = currentHeader -> nextHeader;
+            prevHeader -> size = totalSize;
+            prevHeader -> nextHeader = newNext; 
+        }
+
+        /*Case 3: Only next is free*/
+        else if ((currentHeader -> nextHeader != NULL) && 
+              (currentHeader -> nextHeader -> free == TRUE)){
+            size_t totalSize = currentHeader -> size + currentHeader -> nextHeader -> size;
+            Header *newNext = currentHeader -> nextHeader -> nextHeader;
+            currentHeader -> size = totalSize;
+            currentHeader -> nextHeader = newNext;
+            currentHeader -> free = TRUE;
+
+        }
+    }
+}
+
+
+/*Calls malloc and then zeroes out everything*/
 void *my_calloc(size_t desired_size){
-    void *ret_address = my_malloc(desired_size);
-    uint8_t *zero_counter = ret_address;
     int count;
+    void *ret_address;
+    uint8_t *zero_counter;
+
+    /*Bad users ...*/
+    if (desired_size == 0){
+        return NULL;
+    }
+
+    ret_address = my_malloc(desired_size);
+    zero_counter = ret_address;
+
     for (count = 0; count < desired_size; count++){
         *(zero_counter + count) = 0;
     }
@@ -118,6 +160,12 @@ void *my_calloc(size_t desired_size){
 
 void *my_malloc(size_t desired_size){
     void *return_address;
+
+     /*Bad users ...*/
+    if (desired_size == 0){
+        return NULL;
+    }
+
     if (firstTime == TRUE){
         if (  (void *)(startHeap = (intptr_t) sbrk(HUNK_SIZE) ) == (void *) -1 ){
             perror("fail sbrk");
@@ -147,29 +195,14 @@ void *my_malloc(size_t desired_size){
        	    heapSize = heapSize + HUNK_SIZE;
 	    initializeHunk((intptr_t)lastHeader);
         }
-        
     }
 
-    return   return_address;
+    return return_address;
 }
 
 int main(int agrc, char* argv[]){
-
-    int *pointer = my_malloc(sizeof(int));
-    int *pointer2 = my_calloc(sizeof(int));
-    char *subject = my_malloc(30);
-    char *bigName;
-
-    subject = "joao cavalcanti";
-    pointer[0] = 0;
-    pointer2[0] = 1;
-    bigName = my_malloc(HUNK_SIZE);
-    bigName = "testing beyond boundary";
-
-    printf("pointer has %d\n", pointer[0]);
-    printf("pointer has %d\n", pointer2[0]);
-    printf("subject %s\n", subject);
-    printf("big word: %s\n", bigName);
+   
     exit(EXIT_SUCCESS);
 
 }
+
