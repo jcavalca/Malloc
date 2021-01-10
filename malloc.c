@@ -69,7 +69,7 @@ intptr_t findBigEnoughBlock(size_t desired_size){
 
 		        currentHeader -> size = desired_size;
                 currentHeader -> free = FALSE;
-                return address + sizeOfHeader;
+                return (intptr_t)currentHeader + sizeOfHeader;
             }
         }
         if (currentHeader -> nextHeader == NULL){
@@ -158,6 +158,110 @@ void *my_calloc(size_t desired_size){
     return ret_address;
 }
 
+/**/
+void *my_realloc(void *ptr, size_t size){
+    Header *ptrHeader = firstHeader;
+    intptr_t input = (intptr_t) ptr;
+    size_t sizeOfHeader = round_16(headerSize);
+    size_t originalSize;
+
+    if (ptr == NULL){
+        return my_malloc(size);
+    }
+    if (size == 0 && ptr != NULL){
+        my_free(ptr);
+        return NULL;
+    }
+    else if(size == 0){
+        return NULL;
+    }
+
+
+    /*Out of heap ptr*/
+    if (  (input < (intptr_t) startHeap) || 
+          (input > (intptr_t) startHeap + heapSize)){
+        return NULL;
+    }
+
+    while(  input > (intptr_t) (ptrHeader ->nextHeader) + sizeOfHeader){
+        ptrHeader = ptrHeader -> nextHeader;
+    }
+    if (ptrHeader == NULL){
+        return NULL;
+    }
+    originalSize = ptrHeader -> size;
+    /*Case 1: original size =  size*/
+    if (originalSize == size){
+        return ptr;
+    }
+ 
+    /*Case 2: original size > size */
+    if ( originalSize > size){
+        /*Case 2.1: there is space for a new header*/
+        if (originalSize > size + sizeOfHeader){
+            
+
+            intptr_t address = (intptr_t) ptrHeader + sizeOfHeader + size;
+
+            Header *newHeader = (Header *) address;
+            ptrHeader -> size = size;
+            newHeader -> size =  originalSize - size - sizeOfHeader; 
+            newHeader -> free = TRUE;
+            newHeader -> nextHeader = ptrHeader -> nextHeader; 
+
+            ptrHeader -> nextHeader = newHeader;
+            ptrHeader -> size = size;
+            ptrHeader -> free = FALSE;
+
+            return (void *) ptr;
+        }
+        /*Case 2.2: no space for new header*/
+        else{
+            uint8_t *newPlace = (uint8_t *) my_malloc(size);
+            uint8_t *copyVar =  (uint8_t *) ( (intptr_t) ptrHeader + sizeOfHeader );
+            size_t count;
+            for (count = 0; count < size; count++){
+                *(newPlace + count) = *(copyVar + count);
+            }
+            ptrHeader -> free = TRUE;
+            return newPlace;
+        }
+    }
+
+    /*Case 3: original size < size*/
+    if (originalSize < size){
+        /*Case 3.1: Can use next header*/
+        if ( (ptrHeader -> nextHeader != NULL) && (ptrHeader -> nextHeader -> free == TRUE) &&
+             (ptrHeader -> size + ptrHeader -> nextHeader -> size > size + sizeOfHeader)){
+
+            intptr_t address = (intptr_t) ptrHeader + sizeOfHeader + size;
+            size_t totalSize = originalSize + ptrHeader -> nextHeader -> size;
+
+            Header *newHeader = (Header *) address;
+            newHeader -> size =  totalSize - size - sizeOfHeader; 
+            newHeader -> free = TRUE;
+            newHeader -> nextHeader = ptrHeader -> nextHeader -> nextHeader; 
+
+            ptrHeader -> size = size;
+            ptrHeader -> nextHeader = newHeader;
+            return ptr;
+        }
+        /*Case 3.2: Have to move location*/
+        else{
+            uint8_t *newPlace = (uint8_t *) my_malloc(size);
+            uint8_t *copyVar =  (uint8_t *) ((intptr_t) ptrHeader + sizeOfHeader);
+            int count;
+            for (count = 0; count < size; count++){
+                *(newPlace + count) = *(copyVar + count);
+            }
+            ptrHeader -> free = TRUE;
+            return newPlace;
+        }
+    }
+    return NULL;
+}
+
+
 void *my_malloc(size_t desired_size){
     void *return_address;
 
@@ -202,6 +306,25 @@ void *my_malloc(size_t desired_size){
 
 int main(int agrc, char* argv[]){
    
+    int *pointer = my_malloc(5 * sizeof(int));
+    int count;
+    pointer[0] = 0;
+    pointer[1] = 1;
+    pointer[2] = 2;
+
+    pointer = my_realloc(pointer, 15 * sizeof(int));
+   
+    if (pointer == NULL){
+        printf("NULL\n");
+        return 0;
+    }
+    for (count = 3; count < 15; count++){
+        pointer[count] = count;
+    }
+    for (count = 0; count < 15; count++){
+        printf("pointer[%d]: %d\n", count, pointer[count]);
+    }
+
     exit(EXIT_SUCCESS);
 
 }
