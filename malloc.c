@@ -111,14 +111,14 @@ void my_free(void *ptr){
               (currentHeader -> nextHeader != NULL) && 
               (currentHeader -> nextHeader -> free == TRUE)){
             size_t totalSize = prevHeader -> size + currentHeader -> size + 
-                                currentHeader -> nextHeader -> size;
+                                currentHeader -> nextHeader -> size + 2*sizeOfHeader;
             Header *newNext = currentHeader -> nextHeader -> nextHeader;
             prevHeader -> size = totalSize;
             prevHeader -> nextHeader = newNext; 
         }
         /*Case 2: Only previous is free*/
         else if(prevHeader != currentHeader && prevHeader -> free == TRUE){
-            size_t totalSize = prevHeader -> size + currentHeader -> size;
+            size_t totalSize = prevHeader -> size + currentHeader -> size + sizeOfHeader;
             Header *newNext = currentHeader -> nextHeader;
             prevHeader -> size = totalSize;
             prevHeader -> nextHeader = newNext; 
@@ -127,7 +127,7 @@ void my_free(void *ptr){
         /*Case 3: Only next is free*/
         else if ((currentHeader -> nextHeader != NULL) && 
               (currentHeader -> nextHeader -> free == TRUE)){
-            size_t totalSize = currentHeader -> size + currentHeader -> nextHeader -> size;
+            size_t totalSize = currentHeader -> size + currentHeader -> nextHeader -> size + sizeOfHeader;
             Header *newNext = currentHeader -> nextHeader -> nextHeader;
             currentHeader -> size = totalSize;
             currentHeader -> nextHeader = newNext;
@@ -150,6 +150,10 @@ void *my_calloc(size_t desired_size){
     }
 
     ret_address = my_malloc(desired_size);
+    /*error checking*/
+    if (ret_address == NULL)
+        return NULL;
+
     zero_counter = ret_address;
 
     for (count = 0; count < desired_size; count++){
@@ -220,6 +224,11 @@ void *my_realloc(void *ptr, size_t size){
             uint8_t *newPlace = (uint8_t *) my_malloc(size);
             uint8_t *copyVar =  (uint8_t *) ( (intptr_t) ptrHeader + sizeOfHeader );
             size_t count;
+            
+            /*error checking*/
+            if (newPlace == NULL)
+                return NULL;
+
             for (count = 0; count < size; count++){
                 *(newPlace + count) = *(copyVar + count);
             }
@@ -251,6 +260,12 @@ void *my_realloc(void *ptr, size_t size){
             uint8_t *newPlace = (uint8_t *) my_malloc(size);
             uint8_t *copyVar =  (uint8_t *) ((intptr_t) ptrHeader + sizeOfHeader);
             int count;
+
+            /*error checking*/
+            if (newPlace == NULL)
+                return NULL;
+
+
             for (count = 0; count < size; count++){
                 *(newPlace + count) = *(copyVar + count);
             }
@@ -308,11 +323,22 @@ int main(int agrc, char* argv[]){
    
     int *pointer = my_malloc(5 * sizeof(int));
     int count;
+
+    my_free(pointer);
+    for (count = 0; count < 10000000; count++){
+        pointer = my_malloc(5 * sizeof(int));
+        pointer = my_realloc(pointer, 5 * sizeof(int));
+        my_free(pointer);
+
+    }
+    pointer = my_malloc(5 * sizeof(int));
+
+
     pointer[0] = 0;
     pointer[1] = 1;
     pointer[2] = 2;
 
-    pointer = my_realloc(pointer, 15 * sizeof(int));
+    
    
     if (pointer == NULL){
         printf("NULL\n");
