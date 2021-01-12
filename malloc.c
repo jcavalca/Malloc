@@ -127,7 +127,7 @@ intptr_t findBigEnoughBlock(size_t desired_size){
     return (intptr_t) NULL;
 }
 
-void my_free(void *ptr){
+void free(void *ptr){
     size_t sizeOfHeader = round_16(headerSize);
     intptr_t input = (intptr_t) ptr;
     Header *currentHeader;
@@ -189,7 +189,7 @@ void my_free(void *ptr){
 
 
 /*Calls malloc and then zeroes out everything*/
-void *my_calloc(size_t nmemb, size_t size){
+void *calloc(size_t nmemb, size_t size){
     size_t desired_size = nmemb * size;
     int count;
     void *ret_address;
@@ -200,7 +200,7 @@ void *my_calloc(size_t nmemb, size_t size){
         return NULL;
     }
 
-    ret_address = my_malloc(desired_size);
+    ret_address = malloc(desired_size);
     /*error checking*/
     if (ret_address == NULL)
         return NULL;
@@ -214,17 +214,17 @@ void *my_calloc(size_t nmemb, size_t size){
 }
 
 /**/
-void *my_realloc(void *ptr, size_t size){
+void *realloc(void *ptr, size_t size){
     Header *ptrHeader = firstHeader;
     intptr_t input = (intptr_t) ptr;
     size_t sizeOfHeader = round_16(headerSize);
     size_t originalSize;
 
     if (ptr == NULL){
-        return my_malloc(size);
+        return malloc(size);
     }
     if (size == 0 && ptr != NULL){
-        my_free(ptr);
+        free(ptr);
         print_status_realloc(ptr, 0, NULL, 0);
         return NULL;
     }
@@ -274,7 +274,7 @@ void *my_realloc(void *ptr, size_t size){
         }
         /*Case 2.2: no space for new header*/
         else{
-            uint8_t *newPlace = (uint8_t *) my_malloc(size);
+            uint8_t *newPlace = (uint8_t *) malloc(size);
             uint8_t *copyVar =  (uint8_t *) ( (intptr_t) ptrHeader + sizeOfHeader );
             size_t count;
             
@@ -312,7 +312,7 @@ void *my_realloc(void *ptr, size_t size){
         }
         /*Case 3.2: Have to move location*/
         else{
-            uint8_t *newPlace = (uint8_t *) my_malloc(size);
+            uint8_t *newPlace = (uint8_t *) malloc(size);
             uint8_t *copyVar =  (uint8_t *) ((intptr_t) ptrHeader + sizeOfHeader);
             int count;
 
@@ -334,7 +334,7 @@ void *my_realloc(void *ptr, size_t size){
 }
 
 
-void *my_malloc(size_t desired_size){
+void *malloc(size_t desired_size){
     void *return_address;
 
      /*Bad users ...*/
@@ -382,17 +382,17 @@ void *my_malloc(size_t desired_size){
 
 int main(int agrc, char* argv[]){
    
-    int *pointer = my_malloc(5 * sizeof(int));
+    int *pointer = malloc(5 * sizeof(int));
     int count;
 
-    my_free(pointer);
+    free(pointer);
     for (count = 0; count < 10; count++){
-        pointer = my_malloc(5 * sizeof(int));
-        pointer = my_realloc(pointer, 6 * sizeof(int));
-        my_free(pointer);
+        pointer = malloc(5 * sizeof(int));
+        pointer = realloc(pointer, 6 * sizeof(int));
+        free(pointer);
 
     }
-    pointer = my_calloc(5, sizeof(int));
+    pointer = calloc(5, sizeof(int));
 
 
     pointer[0] = 0;
