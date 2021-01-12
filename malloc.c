@@ -3,6 +3,7 @@
 #include<stdint.h>
 #include<unistd.h>
 #include<string.h>
+#include<limits.h>
 
 #include"definitions.h"
 
@@ -37,30 +38,41 @@ void print_status_malloc(size_t desired_size, void *ptr, size_t size){
     if (getenv("DEBUG_MALLOC") != NULL){
         char buf[LARGE_BUFFER];
         size_t total_size = sizeof(void *) + 2*sizeof(int);
-        total_size = total_size + sizeof("MALLOC: malloc()     =>   (ptr=, size=)\n");
-        snprintf(buf, total_size, "MALLOC: malloc(%d)     =>   (ptr=%p, size=%d)\n",  (int)desired_size, ptr, (int)size);
+        total_size = total_size + 
+        sizeof("MALLOC: malloc()     =>   (ptr=, size=)\n");
+        snprintf(buf, total_size, 
+            "MALLOC: malloc(%d)     =>   (ptr=%p, size=%d)\n",  
+            (int)desired_size, ptr, (int)size);
         write(STDOUT_FILENO, buf, total_size);
     }
 }
 
-void print_status_calloc(size_t old_size, size_t desired_size, void *ptr, size_t size){
+void print_status_calloc(size_t old_size, size_t desired_size, 
+                        void *ptr, size_t size){
     
     if (getenv("DEBUG_MALLOC") != NULL){
         char buf[LARGE_BUFFER];
         size_t total_size = sizeof(void *) + 3*sizeof(int);
-        total_size = total_size + sizeof("MALLOC: calloc(, )     =>   (ptr=, size=)\n");
-        snprintf(buf, total_size, "MALLOC: calloc(%d, %d)     =>   (ptr=%p, size=%d)\n", (int) old_size, (int)desired_size, ptr, (int)size);
+        total_size = total_size + 
+        sizeof("MALLOC: calloc(, )     =>   (ptr=, size=)\n");
+        snprintf(buf, total_size, 
+            "MALLOC: calloc(%d, %d)     =>   (ptr=%p, size=%d)\n",
+            (int) old_size, (int)desired_size, ptr, (int)size);
         write(STDOUT_FILENO, buf, total_size);
     }
 }
 
-void print_status_realloc(void  *old_ptr, size_t desired_size, void *ptr, size_t size){
+void print_status_realloc(void  *old_ptr, size_t desired_size,
+                        void *ptr, size_t size){
     
     if (getenv("DEBUG_MALLOC") != NULL){
         char buf[LARGE_BUFFER];
         size_t total_size = 2*sizeof(void *) + 2*sizeof(int);
-        total_size = total_size + sizeof("MALLOC: realloc(, )     =>   (ptr=, size=)\n");
-        snprintf(buf, total_size, "MALLOC: realloc(%p, %d)     =>   (ptr=%p, size=%d)\n", old_ptr, (int)desired_size, ptr, (int)size);
+        total_size = total_size + 
+        sizeof("MALLOC: realloc(, )     =>   (ptr=, size=)\n");
+        snprintf(buf, total_size,
+            "MALLOC: realloc(%p, %d)     =>   (ptr=%p, size=%d)\n", 
+            old_ptr, (int)desired_size, ptr, (int)size);
         write(STDOUT_FILENO, buf, total_size);
     }
 }
@@ -105,12 +117,15 @@ intptr_t findBigEnoughBlock(size_t desired_size){
             }
             /*Bigger so split big block into 2 blocks*/
             if ( sizeAvailable > (desired_size + sizeOfHeader) ){
-                intptr_t address = (intptr_t) currentHeader + sizeOfHeader + desired_size;
+                intptr_t address = (intptr_t) currentHeader + 
+                    sizeOfHeader + desired_size;
 
    		        Header *newHeader = (Header *) address;
-                newHeader -> size =  sizeAvailable - desired_size - sizeOfHeader; /*size to store data*/
+                newHeader -> size =  sizeAvailable - 
+                    desired_size - sizeOfHeader; /*size to store data*/
                 newHeader -> free = TRUE;
-                newHeader -> nextHeader = currentHeader -> nextHeader; /*starts with one header*/
+                
+                newHeader -> nextHeader = currentHeader -> nextHeader; 
     
         	    currentHeader -> nextHeader = newHeader;
 
@@ -160,14 +175,16 @@ void free(void *ptr){
               (currentHeader -> nextHeader != NULL) && 
               (currentHeader -> nextHeader -> free == TRUE)){
             size_t totalSize = prevHeader -> size + currentHeader -> size + 
-                                currentHeader -> nextHeader -> size + 2*sizeOfHeader;
+                                currentHeader -> nextHeader -> size 
+                                + 2*sizeOfHeader;
             Header *newNext = currentHeader -> nextHeader -> nextHeader;
             prevHeader -> size = totalSize;
             prevHeader -> nextHeader = newNext; 
         }
         /*Case 2: Only previous is free*/
         else if(prevHeader != currentHeader && prevHeader -> free == TRUE){
-            size_t totalSize = prevHeader -> size + currentHeader -> size + sizeOfHeader;
+            size_t totalSize = prevHeader -> size 
+                + currentHeader -> size + sizeOfHeader;
             Header *newNext = currentHeader -> nextHeader;
             prevHeader -> size = totalSize;
             prevHeader -> nextHeader = newNext; 
@@ -176,7 +193,8 @@ void free(void *ptr){
         /*Case 3: Only next is free*/
         else if ((currentHeader -> nextHeader != NULL) && 
               (currentHeader -> nextHeader -> free == TRUE)){
-            size_t totalSize = currentHeader -> size + currentHeader -> nextHeader -> size + sizeOfHeader;
+            size_t totalSize = currentHeader -> size + 
+                    currentHeader -> nextHeader -> size + sizeOfHeader;
             Header *newNext = currentHeader -> nextHeader -> nextHeader;
             currentHeader -> size = totalSize;
             currentHeader -> nextHeader = newNext;
@@ -196,7 +214,7 @@ void *calloc(size_t nmemb, size_t size){
     uint8_t *zero_counter;
 
     /*Bad users ...*/
-    if (desired_size == 0){
+    if (desired_size == 0 || desired_size == UINT_MAX){
         return NULL;
     }
 
@@ -213,14 +231,14 @@ void *calloc(size_t nmemb, size_t size){
     return ret_address;
 }
 
-/**/
+/*Calls malloc and free when needed*/
 void *realloc(void *ptr, size_t size){
     Header *ptrHeader = firstHeader;
     intptr_t input = (intptr_t) ptr;
     size_t sizeOfHeader = round_16(headerSize);
     size_t originalSize;
 
-    if (ptr == NULL){
+    if (ptr == NULL || size == UINT_MAX){
         return malloc(size);
     }
     if (size == 0 && ptr != NULL){
@@ -275,7 +293,8 @@ void *realloc(void *ptr, size_t size){
         /*Case 2.2: no space for new header*/
         else{
             uint8_t *newPlace = (uint8_t *) malloc(size);
-            uint8_t *copyVar =  (uint8_t *) ( (intptr_t) ptrHeader + sizeOfHeader );
+            uint8_t *copyVar =  (uint8_t *) ( (intptr_t) ptrHeader 
+                                + sizeOfHeader);
             size_t count;
             
             /*error checking*/
@@ -294,11 +313,15 @@ void *realloc(void *ptr, size_t size){
     /*Case 3: original size < size*/
     if (originalSize < size){
         /*Case 3.1: Can use next header*/
-        if ( (ptrHeader -> nextHeader != NULL) && (ptrHeader -> nextHeader -> free == TRUE) &&
-             (ptrHeader -> size + ptrHeader -> nextHeader -> size > size + sizeOfHeader)){
+        if ( (ptrHeader -> nextHeader != NULL) && 
+            (ptrHeader -> nextHeader -> free == TRUE) &&
+             (ptrHeader -> size + ptrHeader -> nextHeader -> size > 
+                size + sizeOfHeader)){
 
-            intptr_t address = (intptr_t) ptrHeader + sizeOfHeader + size;
-            size_t totalSize = originalSize + ptrHeader -> nextHeader -> size;
+            intptr_t address = (intptr_t) ptrHeader
+                     + sizeOfHeader + size;
+            size_t totalSize = originalSize + 
+                    ptrHeader -> nextHeader -> size;
 
             Header *newHeader = (Header *) address;
             newHeader -> size =  totalSize - size; 
@@ -313,7 +336,8 @@ void *realloc(void *ptr, size_t size){
         /*Case 3.2: Have to move location*/
         else{
             uint8_t *newPlace = (uint8_t *) malloc(size);
-            uint8_t *copyVar =  (uint8_t *) ((intptr_t) ptrHeader + sizeOfHeader);
+            uint8_t *copyVar =  (uint8_t *) ((intptr_t) ptrHeader 
+                            + sizeOfHeader);
             int count;
 
             /*error checking*/
@@ -338,13 +362,13 @@ void *malloc(size_t desired_size){
     void *return_address;
 
      /*Bad users ...*/
-    if (desired_size == 0){
+    if (desired_size == 0 || desired_size == UINT_MAX){
         print_status_malloc(0, NULL, 0);
         return NULL;
     }
 
     if (firstTime == TRUE){
-        if (  (void *)(startHeap = (intptr_t) sbrk(HUNK_SIZE) ) == (void *) -1 ){
+        if ((void *)(startHeap = (intptr_t)sbrk(HUNK_SIZE)) == (void *) -1){
             perror("fail sbrk");
             print_status_malloc(0, NULL, 0);
             return NULL;
@@ -354,8 +378,9 @@ void *malloc(size_t desired_size){
         lastHeader = firstHeader;
         firstTime = FALSE;
     }
-    while((return_address = (void*) findBigEnoughBlock(desired_size) ) == NULL){
-        /*Case 1: Last header in heap is free and we join with a new sbrk call.*/
+    while((return_address = (void*)findBigEnoughBlock(desired_size))==NULL){
+        /*Case 1: Last header in heap is free
+             and we join with a new sbrk call.*/
         if (lastHeader -> free == TRUE){
             if (sbrk(HUNK_SIZE) == (void *) -1){
                 perror("fail sbrk");
@@ -365,7 +390,8 @@ void *malloc(size_t desired_size){
 	    heapSize = heapSize + HUNK_SIZE;
             lastHeader -> size = lastHeader -> size + HUNK_SIZE;
         }
-        /*Case 2: Last header is full so we have to initialize the new 64k block with a free header*/
+        /*Case 2: Last header is full so we have to initialize 
+        the new 64k block with a free header*/
         else{
             if ( (lastHeader = sbrk(HUNK_SIZE) ) == (void *) -1){
                 perror("fail sbrk");
