@@ -9,6 +9,7 @@
 #define HUNK_SIZE 65536
 #define TRUE 1
 #define FALSE 0
+#define LARGE_BUFFER 256
 
 /* Global variables for storing heap info */
 
@@ -29,6 +30,52 @@ size_t round_16(size_t number){
     }
     return multiple;
 }
+
+/*Prints status if DEBUG_MALLOC env variable is set*/
+void print_status_malloc(size_t desired_size, void *ptr, size_t size){
+    
+    if (getenv("DEBUG_MALLOC") != NULL){
+        char buf[LARGE_BUFFER];
+        size_t total_size = sizeof(void *) + 2*sizeof(int);
+        total_size = total_size + sizeof("MALLOC: malloc()     =>   (ptr=, size=)\n");
+        snprintf(buf, total_size, "MALLOC: malloc(%d)     =>   (ptr=%p, size=%d)\n",  (int)desired_size, ptr, (int)size);
+        write(STDOUT_FILENO, buf, total_size);
+    }
+}
+
+void print_status_calloc(size_t old_size, size_t desired_size, void *ptr, size_t size){
+    
+    if (getenv("DEBUG_MALLOC") != NULL){
+        char buf[LARGE_BUFFER];
+        size_t total_size = sizeof(void *) + 3*sizeof(int);
+        total_size = total_size + sizeof("MALLOC: calloc(, )     =>   (ptr=, size=)\n");
+        snprintf(buf, total_size, "MALLOC: calloc(%d, %d)     =>   (ptr=%p, size=%d)\n", (int) old_size, (int)desired_size, ptr, (int)size);
+        write(STDOUT_FILENO, buf, total_size);
+    }
+}
+
+void print_status_realloc(void  *old_ptr, size_t desired_size, void *ptr, size_t size){
+    
+    if (getenv("DEBUG_MALLOC") != NULL){
+        char buf[LARGE_BUFFER];
+        size_t total_size = 2*sizeof(void *) + 2*sizeof(int);
+        total_size = total_size + sizeof("MALLOC: realloc(, )     =>   (ptr=, size=)\n");
+        snprintf(buf, total_size, "MALLOC: realloc(%p, %d)     =>   (ptr=%p, size=%d)\n", old_ptr, (int)desired_size, ptr, (int)size);
+        write(STDOUT_FILENO, buf, total_size);
+    }
+}
+
+void print_status_free(void *ptr){
+    
+    if (getenv("DEBUG_MALLOC") != NULL){
+        char buf[LARGE_BUFFER];
+        size_t total_size = sizeof(void *);
+        total_size = total_size + sizeof("MALLOC: free(%p)\n");
+        snprintf(buf, total_size, "MALLOC: free(%p)\n", ptr);
+        write(STDOUT_FILENO, buf, total_size);
+    }
+}
+
 
 /*Initializes a 64k heap header*/
 intptr_t initializeHunk(intptr_t start){
@@ -85,7 +132,8 @@ void my_free(void *ptr){
     intptr_t input = (intptr_t) ptr;
     Header *currentHeader;
     Header *prevHeader;
-    /*Bad users ...*/
+    /*Bad users ... 
+    Doesn't call print_status because snprintf(3) calls*/
     if (ptr == NULL){
         return;
     }
@@ -93,6 +141,7 @@ void my_free(void *ptr){
     /*Out of heap ptr*/
     if (  (input < (intptr_t) startHeap) || 
           (input > (intptr_t) startHeap + heapSize)){
+        print_status_free(NULL);
         return;
     }
     /*On Heap*/
@@ -134,12 +183,14 @@ void my_free(void *ptr){
             currentHeader -> free = TRUE;
 
         }
+        print_status_free(ptr);
     }
 }
 
 
 /*Calls malloc and then zeroes out everything*/
-void *my_calloc(size_t desired_size){
+void *my_calloc(size_t nmemb, size_t size){
+    size_t desired_size = nmemb * size;
     int count;
     void *ret_address;
     uint8_t *zero_counter;
@@ -174,9 +225,11 @@ void *my_realloc(void *ptr, size_t size){
     }
     if (size == 0 && ptr != NULL){
         my_free(ptr);
+        print_status_realloc(ptr, 0, NULL, 0);
         return NULL;
     }
     else if(size == 0){
+        print_status_realloc(NULL, 0, NULL, 0);
         return NULL;
     }
 
@@ -216,7 +269,7 @@ void *my_realloc(void *ptr, size_t size){
             ptrHeader -> nextHeader = newHeader;
             ptrHeader -> size = size;
             ptrHeader -> free = FALSE;
-
+            print_status_realloc(ptr, size, ptr, size);
             return (void *) ptr;
         }
         /*Case 2.2: no space for new header*/
@@ -233,6 +286,7 @@ void *my_realloc(void *ptr, size_t size){
                 *(newPlace + count) = *(copyVar + count);
             }
             ptrHeader -> free = TRUE;
+            print_status_realloc(ptr, size, newPlace, size);
             return newPlace;
         }
     }
@@ -247,12 +301,13 @@ void *my_realloc(void *ptr, size_t size){
             size_t totalSize = originalSize + ptrHeader -> nextHeader -> size;
 
             Header *newHeader = (Header *) address;
-            newHeader -> size =  totalSize - size - sizeOfHeader; 
+            newHeader -> size =  totalSize - size; 
             newHeader -> free = TRUE;
             newHeader -> nextHeader = ptrHeader -> nextHeader -> nextHeader; 
 
             ptrHeader -> size = size;
             ptrHeader -> nextHeader = newHeader;
+            print_status_realloc(ptr, size, ptr, size);
             return ptr;
         }
         /*Case 3.2: Have to move location*/
@@ -270,9 +325,11 @@ void *my_realloc(void *ptr, size_t size){
                 *(newPlace + count) = *(copyVar + count);
             }
             ptrHeader -> free = TRUE;
+            print_status_realloc(newPlace, size, ptr, size);
             return newPlace;
         }
     }
+    print_status_realloc(NULL, 0, NULL, 0);
     return NULL;
 }
 
@@ -282,12 +339,14 @@ void *my_malloc(size_t desired_size){
 
      /*Bad users ...*/
     if (desired_size == 0){
+        print_status_malloc(0, NULL, 0);
         return NULL;
     }
 
     if (firstTime == TRUE){
         if (  (void *)(startHeap = (intptr_t) sbrk(HUNK_SIZE) ) == (void *) -1 ){
             perror("fail sbrk");
+            print_status_malloc(0, NULL, 0);
             return NULL;
         }
 	    heapSize = heapSize + HUNK_SIZE;
@@ -300,6 +359,7 @@ void *my_malloc(size_t desired_size){
         if (lastHeader -> free == TRUE){
             if (sbrk(HUNK_SIZE) == (void *) -1){
                 perror("fail sbrk");
+                print_status_malloc(0, NULL, 0);
                 return NULL;
             }
 	    heapSize = heapSize + HUNK_SIZE;
@@ -309,13 +369,14 @@ void *my_malloc(size_t desired_size){
         else{
             if ( (lastHeader = sbrk(HUNK_SIZE) ) == (void *) -1){
                 perror("fail sbrk");
+                print_status_malloc(0,NULL, 0);
                 return NULL;
             }
        	    heapSize = heapSize + HUNK_SIZE;
 	    initializeHunk((intptr_t)lastHeader);
         }
     }
-
+    print_status_malloc(desired_size, return_address, desired_size);
     return return_address;
 }
 
@@ -325,13 +386,13 @@ int main(int agrc, char* argv[]){
     int count;
 
     my_free(pointer);
-    for (count = 0; count < 10000000; count++){
+    for (count = 0; count < 10; count++){
         pointer = my_malloc(5 * sizeof(int));
-        pointer = my_realloc(pointer, 5 * sizeof(int));
+        pointer = my_realloc(pointer, 6 * sizeof(int));
         my_free(pointer);
 
     }
-    pointer = my_malloc(5 * sizeof(int));
+    pointer = my_calloc(5, sizeof(int));
 
 
     pointer[0] = 0;
