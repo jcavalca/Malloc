@@ -379,36 +379,3 @@ void *malloc(size_t desired_size){
     print_status_malloc(desired_size, return_address, desired_size);
     return return_address;
 }
-
-/*int main(int agrc, char* argv[]){
-   
-    int *pointer = malloc(5 * sizeof(int));
-    int count;
-
-    free(pointer);
-    for (count = 0; count < 10; count++){
-        pointer = malloc(5 * sizeof(int));
-        pointer = realloc(pointer, 6 * sizeof(int));
-        free(pointer);
-
-    }
-    pointer = calloc(5, sizeof(int));
-    pointer[0] = 0;
-    pointer[1] = 1;
-    pointer[2] = 2;
-
-    if (pointer == NULL){
-        printf("NULL\n");
-        return 0;
-    }
-    for (count = 3; count < 15; count++){
-        pointer[count] = count;
-    }
-    for (count = 0; count < 15; count++){
-        printf("pointer[%d]: %d\n", count, pointer[count]);
-    }
-
-    exit(EXIT_SUCCESS);
-
-}*/
-

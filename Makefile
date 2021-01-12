@@ -2,11 +2,18 @@ CC = gcc
 
 CFLAGS = -Wall -g -fpic
 
+malloc: malloc32.o malloc64.o libmalloc.a libmalloc.so
+	@echo done
+
+libmalloc.a:
+	ar r lib/libmalloc.a malloc32.o
+	ar r lib64/libmalloc.a malloc64.o
+
+libmalloc.so: lib/libmalloc.so lib64/libmalloc.so
+
+
 intel-all: lib/libmalloc.so lib64/libmalloc.so
-	ar r libmalloc.a malloc32.o
-	mv libmalloc.a lib/libmalloc.a
-	ar r libmalloc.a malloc64.o
-	mv libmalloc.a lib64/libmalloc.amak
+	
 
 lib/libmalloc.so: lib malloc32.o
 	$(CC) $(CFLAGS) -m32 -shared -o $@ malloc32.o
@@ -26,17 +33,16 @@ malloc32.o: malloc.c
 malloc64.o: malloc.c
 	$(CC) $(CFLAGS) -m64 -c -o malloc64.o malloc.c
 
-malloc: malloc.o
-	$(CC) $(CFLAGS) -o malloc malloc.o
-
 malloc.o: malloc.c definitions.h
-	 $(CC) $(CFLAGS) -c malloc.c
+	$(CC) $(CFLAGS) -c malloc.c
 
 clean: malloc malloc.o malloc32.o malloc64.o
-	rm malloc
 	rm malloc.o
 	rm malloc32.o
 	rm malloc64.o
 
-run: malloc
-	./malloc
+build: lib64/libmalloc.so test.c 
+	$(CC) $(CFLAGS) -o test test.c lib64/libmalloc.so -L. 
+
+run: build
+	./test
