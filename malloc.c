@@ -380,7 +380,7 @@ void *malloc(size_t desired_size){
     return return_address;
 }
 
-int main(int agrc, char* argv[]){
+/*int main(int agrc, char* argv[]){
    
     int *pointer = malloc(5 * sizeof(int));
     int count;
@@ -393,14 +393,10 @@ int main(int agrc, char* argv[]){
 
     }
     pointer = calloc(5, sizeof(int));
-
-
     pointer[0] = 0;
     pointer[1] = 1;
     pointer[2] = 2;
 
-    
-   
     if (pointer == NULL){
         printf("NULL\n");
         return 0;
@@ -414,5 +410,5 @@ int main(int agrc, char* argv[]){
 
     exit(EXIT_SUCCESS);
 
-}
+}*/
 
