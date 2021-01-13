@@ -258,7 +258,7 @@ void *realloc(void *ptr, size_t size){
         return NULL;
     }
 
-    while(  input > (intptr_t) (ptrHeader ->nextHeader) + sizeOfHeader){
+    while(  input > (intptr_t) (ptrHeader ->nextHeader)){
         ptrHeader = ptrHeader -> nextHeader;
     }
     if (ptrHeader == NULL){
