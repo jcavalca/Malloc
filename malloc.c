@@ -21,7 +21,8 @@ Header *firstHeader;
 Header *lastHeader;
 uint64_t heapSize = 0;
 
-/*This rounds a number to the next 16 multiple*/
+/*This rounds header size to the next 16 bytes multiple. 
+It will be 16 or 32, depending on machine*/
 size_t round_16(size_t number){
     size_t multiple = 16;
     int count = 2;
@@ -119,8 +120,10 @@ intptr_t findBigEnoughBlock(size_t desired_size){
             if ( sizeAvailable > (desired_size + sizeOfHeader) ){
                 intptr_t address = (intptr_t) currentHeader + 
                     sizeOfHeader + desired_size;
+   		Header *newHeader;
 
-   		        Header *newHeader = (Header *) address;
+                newHeader = (Header *) (address);
+
                 newHeader -> size =  sizeAvailable - 
                     desired_size - sizeOfHeader; /*size to store data*/
                 newHeader -> free = TRUE;
@@ -139,6 +142,7 @@ intptr_t findBigEnoughBlock(size_t desired_size){
         }
         currentHeader = currentHeader -> nextHeader;
     }
+    /*couldn't find open spots on heap*/
     return (intptr_t) NULL;
 }
 
@@ -163,7 +167,7 @@ void free(void *ptr){
     currentHeader = firstHeader;
     prevHeader = firstHeader;
 
-    while(  input > (intptr_t) (currentHeader ->nextHeader) + sizeOfHeader){
+    while(  input > (intptr_t) (currentHeader ->nextHeader)){
         prevHeader = currentHeader;
         currentHeader = currentHeader -> nextHeader;
     }
@@ -387,7 +391,7 @@ void *malloc(size_t desired_size){
                 print_status_malloc(0, NULL, 0);
                 return NULL;
             }
-	    heapSize = heapSize + HUNK_SIZE;
+	        heapSize = heapSize + HUNK_SIZE;
             lastHeader -> size = lastHeader -> size + HUNK_SIZE;
         }
         /*Case 2: Last header is full so we have to initialize 
@@ -399,7 +403,7 @@ void *malloc(size_t desired_size){
                 return NULL;
             }
        	    heapSize = heapSize + HUNK_SIZE;
-	    initializeHunk((intptr_t)lastHeader);
+	        initializeHunk((intptr_t)lastHeader);
         }
     }
     print_status_malloc(desired_size, return_address, desired_size);
